@@ -1,4 +1,7 @@
 open Format
+#load "graphics.cma";; 
+open Graphics;;
+open_graph " 600 x 400";;
 (*UF *)
 let max_rang = ref 0;;
 type partition = (int * int) array;;
@@ -108,11 +111,15 @@ let generate_lab l h =
     in aux !a ((l-1)*h + l*(h-1)) ;
    mur_present;;
 
+(*0 verticale 1 horizontal *)
+
+
+
 let generate_lab2 l h =
   let mur_present = Array.make 2 (Array.make l (Array.init h (fun i -> true))) in
- let uf = init (l*h) in
+  let uf = init (l*h) in
   let acc = ref 1 in
-  while !acc < (l * h) - 1 do
+  while !acc < l - (h/2) do
     let (d, x, y) = mur_au_hasard_improved l h in
     let (i, j) = cases_adjacentes l h (d, x, y) in
     (*if i < (l * h) - 1 && j < (l * h) - 1 then*)
@@ -128,9 +135,29 @@ let generate_lab2 l h =
     (* else *)
   done;
   (mur_present, uf);;
+generate_lab2 5 5 ;;
+
+set_line_width 4;;
+let trace_pourtour upleftx uplefty taille_case l h =
+  moveto upleftx uplefty;
+  lineto (upleftx + (taille_case * l)) uplefty;
+  lineto (upleftx + (taille_case * l)) (uplefty + (taille_case * h));
+  lineto upleftx (uplefty + (taille_case * h));
+  lineto upleftx uplefty;;
 
 
-let test() = 
-        let m = mur_au_hasard 5 5 in 
-        let (i,j) = cases_adjacentes 5 5 m in 
-        (i,j);;
+let trace_mur upleftx uplefty taille_case (d,x,y) = 
+  moveto (upleftx - y*taille_case)  (uplefty + x*taille_case);
+  if d = 0
+  then lineto (upleftx - y*taille_case) ((uplefty + x*taille_case) -uplefty)
+  else lineto ((upleftx - y*taille_case)-upleftx) (uplefty + x*taille_case)  ;;
+
+trace_pourtour 100 50 40 5 5;;
+trace_mur 200 200 40 (mur_au_hasard_improved 5 5 );;
+
+
+ignore  @@ Graphics.read_key();;
+
+
+(*let test() = *)
+  
