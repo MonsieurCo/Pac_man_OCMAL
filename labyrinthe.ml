@@ -1,10 +1,12 @@
-open Format
+
 #load "graphics.cma";; 
+
 open Graphics;;
-open_graph " 600 x 400";;
+open_graph " 1920x1080";;
 (*UF *)
 let max_rang = ref 0;;
 type partition = (int * int) array;;
+
 
 let init n =
 	Array.init n (fun i -> (i, 0));;
@@ -65,16 +67,10 @@ let mur_au_hasard_improved l h =
 mur_au_hasard_improved 5 5 ;;
 
 
-
-let mur_au_hasard l h = (* renvoie un triplet (d, x, y) *) 
-    let n = Random.int ((l*h)-2) in
-    if n > l * (h-1)
-        then (0, n mod (l-1), n / (l-1))
-    else 
-        let bin = Random.int 1 in 
-        if ((n mod l) = (l-1) ) then (1, (n mod l), (n / l) )
-        else (bin, n mod l, n / l);;
-
+let mur_au_hasard l h = (* renvoie un triplet (d, x, y) *) let n = Random.int ((l-1) * h + l * (h-1)) in
+if n < (l-1) * h
+then (0, n mod (l-1), n / (l-1))
+else let n2 = n - (l-1) * h in (1, n2 mod l, n2 / l)
 
 let cases_adjacentes l h (d,x,y) = match d with
     | 1 -> ((x*l)+y, (x*l)+y + l)
@@ -86,9 +82,24 @@ let cases_adjacentes l h (d,x,y) = match d with
     cases_adjacentes 5 5 (0,0,2)  
     cases_adjacentes 3 3 (1,2,0)  
     cases_adjacentes 5 5 (1,0,1) *)
+
+
+    let mur_presentgen l h = 
+    let mur =  Array.make 2 [||]  in 
+    for i = 0 to 1 do
+        mur.(i) <- Array.make 5 [||];
+        for  j = 0 to h-1 do 
+            mur.(i).(j) <- Array.make l true ;
+
+        done;
+    done;
+    mur;;
+
+
+
     
 let generate_lab l h = 
-    let mur_present = Array.make 2 (Array.make l (Array.init h (fun x -> true))) in
+    let mur_present = mur_presentgen l h in
     let uf = init (l*h) in
     let a = ref 1 in
     let rec aux e b = 
@@ -108,54 +119,107 @@ let generate_lab l h =
         print_int(12);
     
         
-    in aux !a ((l-1)*h + l*(h-1)) ;
+    in aux !a ((l*h)) ;
    mur_present;;
 
 (*0 verticale 1 horizontal *)
 
-
-
-let generate_lab2 l h =
-  let mur_present = Array.make 2 (Array.make l (Array.init h (fun i -> true))) in
+let generate_lab_taki l h =
+  let mur_present = mur_presentgen l h in
   let uf = init (l*h) in
   let acc = ref 1 in
-  while !acc < l - (h/2) do
+  while !acc < (l * h) do
     let (d, x, y) = mur_au_hasard_improved l h in
     let (i, j) = cases_adjacentes l h (d, x, y) in
-    (*if i < (l * h) - 1 && j < (l * h) - 1 then*)
-     begin
-      printf "%d %d %d %d\n" x y ((l * h) - 1) !acc;
       if find uf i <> find uf j
       then begin
         union uf i j;
+        Printf.printf "d = %d x = %d y = %d\n" d x y;
+        mur_present.(d).(x).(y) <- false;
+        acc := !acc + 1;
+      end
+    
+  done;
+  mur_present
+
+let generate_lab2 l h =
+    let mur_present = mur_presentgen l h in
+    let uf = init (l*h) in
+    let acc = ref 1 in
+    while !acc < (l * h) do
+    
+        let (d, x, y) = mur_au_hasard_improved l h in
+        let (i, j) = cases_adjacentes l h (d, x, y) in
+        begin
+      
+      if find uf i <> find uf j
+      then begin
+        union uf i j;
+        
         mur_present.(d).(x).(y) <- false;
         acc := !acc + 1;
       end
     end
     (* else *)
   done;
-  (mur_present, uf);;
-generate_lab2 5 5 ;;
+  mur_present;;
 
 set_line_width 4;;
 let trace_pourtour upleftx uplefty taille_case l h =
   moveto upleftx uplefty;
-  lineto (upleftx + (taille_case * l)) uplefty;
-  lineto (upleftx + (taille_case * l)) (uplefty + (taille_case * h));
-  lineto upleftx (uplefty + (taille_case * h));
+  lineto ( current_x() + (taille_case * h)) (current_y()) ;
+  lineto (current_x()) ((current_y()) - (taille_case * l));
+  lineto ((current_x()) - (taille_case * h)) (current_y());
   lineto upleftx uplefty;;
 
 
 let trace_mur upleftx uplefty taille_case (d,x,y) = 
-  moveto (upleftx - y*taille_case)  (uplefty + x*taille_case);
-  if d = 0
-  then lineto (upleftx - y*taille_case) ((uplefty + x*taille_case) -uplefty)
-  else lineto ((upleftx - y*taille_case)-upleftx) (uplefty + x*taille_case)  ;;
+    moveto upleftx uplefty ;
+    let (a,b) = (((current_x())+(y* taille_case)) , ((current_y())-(x* taille_case)))  in
+    moveto (a+taille_case) b ;
+    if d = 0
+    then lineto (current_x()) ((current_y())-taille_case)
+    else begin 
+    moveto a (b-taille_case) ;
+    lineto ((current_x())+ taille_case ) (current_y()) end ;;
 
-trace_pourtour 100 50 40 5 5;;
-trace_mur 200 200 40 (mur_au_hasard_improved 5 5 );;
+
+let trace_lab upleftx uplefty taille_case l h mur_present=
+    trace_pourtour upleftx uplefty taille_case l h;
+    for d = 0 to 1 do
+        for x = 0 to (l-1) do 
+            for y = 0 to (h-1) do
+                if mur_present.(d).(x).(y) = true then
+                    trace_mur upleftx uplefty taille_case (d, x, y)
+                    
+            done 
+        done 
+    done;;
 
 
+
+
+
+trace_lab 100 500 50 5 5 (generate_lab_taki 5 5);
+
+(*
+trace_lab 0 800 50 100 500 (generate_lab2 100 500);
+trace_pourtour 600 600 50 5 5;;
+trace_mur 600 600 50 (0,0,2);;
+trace_mur 600 600 50 (1,0,0);;
+trace_mur 600 600 50 (1,0,1);;
+trace_mur 600 600 50 (1,2,1);;
+trace_mur 600 600 50 (0,1,1);;
+trace_mur 600 600 50 (1,0,3);;
+trace_mur 600 600 50 (1,1,0);;
+trace_mur 600 600 50 (0,2,0);;
+trace_mur 600 600 50 (0,1,3);;
+trace_mur 600 600 50 (0,3,2);;
+trace_mur 600 600 50 (0,3,3);;
+trace_mur 600 600 50 (0,4,2);;
+trace_mur 600 600 50 (1,3,4);;
+trace_mur 600 600 50 (1,1,2);;
+*)
 ignore  @@ Graphics.read_key();;
 
 
