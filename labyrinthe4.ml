@@ -20,13 +20,11 @@ module Uf : UF = struct
     uf ;;
 
   let rec find uf i =
-    let pi = uf.parent.(i) in
-    if pi == i then
+    if uf.parent.(i) == i then
       i
     else begin
-      let racine = find uf pi in
-      uf.parent.(i) <- racine; (* path compression *)
-      racine
+      uf.parent.(i) <- find uf uf.parent.(i);
+      uf.parent.(i)
     end
 
   let union t x y =

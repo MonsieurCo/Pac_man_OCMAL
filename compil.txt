@@ -1,0 +1,1 @@
+ocamlc -thread graphics.cma unix.cma threads.cma labyrinthe4.ml
