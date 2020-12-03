@@ -1,7 +1,7 @@
 (*#load "graphics.cma";;*)
 
 open Graphics;;
-open_graph " 1920x1080";;
+open_graph " 800x800";;
 
 module type UF = sig
   type uf
@@ -41,11 +41,14 @@ end
 
 open Uf;;
 
+(*Declaration des références globales *)
 let lost = ref false;;
 let win = ref false;;
 
 let case_pacman = ref 0;;
 let case_fantome = ref 1;;
+
+let voisine_relie = ref false;;
 
 (* LABYRINTHE *)
 let mur_au_hasard l h =
@@ -148,6 +151,21 @@ let dessine_pac(case_pacman,c,tc) = begin
   set_color black;
 end;;
 
+
+(*    dessine path finding *)
+
+let draw_path case_pacman = begin
+  let x = fst case_pacman in
+  let y = snd case_pacman in
+  let color = green in
+  set_color color;
+  fill_circle x y 10 ;
+  set_color black;
+end;;
+
+
+
+
 (* PAC-MAN *)
 let move_pacman l h lab = 
   let key = read_key() in
@@ -169,7 +187,8 @@ let move_pacman l h lab =
     if !case_pacman = (l*h)-1
     then win := true
     else  begin case_pacman :=  !case_pacman ; sound 15000 100; end
-  | _ -> invalid_arg"wola";;
+  | 'a' -> invalid_arg"game exited...";
+  | _ ->  sound 15000 100;; 
 
 (* Fantome *)
 let movefantome case_pac case_fantome l h = 
@@ -185,6 +204,93 @@ let movefantome case_pac case_fantome l h =
   | xf , yf , xp , yp when yf > yp && xf < xp  -> case_fantome + l
   | xf , yf , xp , yp when yf > yp && xf > xp  -> case_fantome - 1
   | xf , yf , xp , yp -> case_fantome;;
+
+
+
+(*Renvoie un tableau de 4 valeurs corspondantes aux cases voisines de la case i , 
+si la case n'existe pas exemple on demande la voisine gauche quand on ets au 
+bord du plateau on retourne la case courante  
+ les cases sont rendu dans l'ordre gauche , haut , droit , bas *)
+let case_voisines i l h = Printf.printf " <case voisines> appélé pour %d\n " i;
+                          if i < l && i > 0 && i <(l-1) then [|i-1;i;i+1;i+l|] 
+                          else if i < l && i > 0 && i = (l-1) then [|i-1;i;i;i+l|]  
+                          else if i mod l = 0 && (i/l) = 0 then [|i;i;i+1;i+l|] 
+                          else if (i mod l ) = 0 && (i / l)  < h-1 then [|i;i-l;i+1;i+l|]  
+                          else if (i mod l ) = 0 && (i / l) = h-1 then [|i;i-l;i+1;i|] 
+                          else if (i mod l ) = (h-1) && (i / l)  < h-1 then [|i-1;i-l;i;i+l|] 
+                          else if (i mod l ) = (h-1) && (i / l) = h-1 then [|i-1;i-l;i;i|] 
+                          else if (i/l) = h-1 then [|i-1;i-l;i+1;i|] 
+                          else [|i-1;i-l;i+1;i+l|] ;;
+
+(*Retourne un tableau de longueur varable de cases inaccessible depuis la case i *)
+let evite i l h mur_present = 
+                  let voisin = case_voisines i l h in
+                
+                  let give_x case = case / l in 
+                  let give_y case = case mod l in 
+                  let tab = ref [||] in 
+                  for j=0 to 3 do 
+                
+                  if voisin.(j) <> i then
+                  let x = give_x voisin.(j) in 
+                  let y = give_y voisin.(j) in 
+
+                  if voisin.(j) = i-1 then begin 
+                  if (mur_present.(0).(x).(y) = true) then tab := Array.append !tab [|voisin.(j)|] end; 
+                  if voisin.(j) = i-l then begin 
+                  if (mur_present.(1).(x).(y) = true) then tab := Array.append !tab [|voisin.(j)|] end;
+                  if voisin.(j) = i+1 then begin 
+                      let ix = give_x i in 
+                      let iy = give_y i in 
+                  if (mur_present.(0).(ix).(iy) = true) then tab := Array.append !tab [|voisin.(j)|] end;
+                  if voisin.(j) = i+l then 
+                  begin 
+                      let ix = give_x i in 
+                      let iy = give_y i in 
+                  if (mur_present.(1).(ix).(iy) = true) then tab := Array.append !tab [|voisin.(j)|] end;
+                  done;
+                  !tab;;
+
+(*A partir d'un tableau de cases a éviter et d'un tableau de cases voisines retorune un tableau de cases accessibles mais pas forcément relié au pacman *)
+let disponible evite voisine src = 
+              let tab = ref [||] in
+              for i=0 to (Array.length voisine) -1 do 
+                if (not (Array.memq voisine.(i) evite )) && voisine.(i) <> src then 
+                  tab := Array.append !tab [|voisine.(i)|];
+                done; 
+    
+              !tab;;    
+
+
+
+
+
+
+
+let rec est_relie src dst evite voisines pos =
+  (*l'argument pos ici est acutellement inutile mais sert a l'affichage de la recherche de chemin pour le debug *)
+  (*draw_path pos.(src);
+  ignore (Unix.select [] [] [] 0.1);*)
+  if src = dst then begin
+    voisine_relie := true;
+    true
+  end
+  else
+    begin
+      for c = 0 to Array.length voisines.(src) - 1 do
+        (*Printf.printf "%d\n" voisines.(src).(c);*)
+        if evite <> voisines.(src).(c) && voisines.(src).(c) <> src then begin
+          if est_relie voisines.(src).(c) dst src voisines pos
+            then true
+          else false;
+        end
+        else false
+      done;
+      false
+    end;;
+
+
+
 
 (* Positions *)
 let generate_pos upleftx uplefty taille_case l h =
@@ -224,19 +330,39 @@ let check_loose () =
       draw_string "Perdu"; 
     end;;
 
-let threaded_ghost (upleftx, uplefty, taille_case, case_pac, case_fantome, l, h, lab, pos) = 
+let break = ref false;;
+
+
+let threaded_ghost (upleftx, uplefty, taille_case, case_pac, case_fantome, l, h, lab, pos,mur_present) = 
   dessine_pac(pos.(!case_fantome),red,taille_case) ;
+  let voisine = ref (Array.init (l*h) (fun i -> case_voisines i l h )) in
+  let evite_array = ref (Array.init (l*h) (fun i -> evite i l h mur_present )) in
+  let dispo = Array.init (l*h) (fun i-> disponible !evite_array.(i) !voisine.(i) i)in
   while not !win && not !lost do
     Unix.sleep 2;
+   (* ignore (Unix.select [] [] [] 0.1);*)
     if not !win && not !lost
-    then begin
-     
+    then begin 
+      
+      (*let chem = chemin !case_fantome !case_pac mur_present l h pos in*)
+
       check_loose ();
       if not !lost then begin
         clear_graph ();
         (*center pos;*)
         dessine_pac(pos.(!case_pacman),yellow,taille_case) ;
-        case_fantome := movefantome !case_pacman !case_fantome l h ;
+      
+          for i = 0 to (Array.length dispo.(!case_fantome)) - 1 do
+            (*Printf.printf "%d\n" dispo.(!case_fantome).(i);*)
+            if not !voisine_relie then begin 
+            ignore @@ est_relie dispo.(!case_fantome).(i) !case_pacman !case_fantome dispo pos end;
+            if not !break && !voisine_relie  then begin
+              case_fantome := dispo.(!case_fantome).(i);
+              break := true
+            end
+          done;
+          voisine_relie := false;
+          break := false;
         dessine_pac(pos.(!case_fantome),red,taille_case) ;
         trace_lab upleftx uplefty taille_case l h (lab);
       end;
@@ -244,6 +370,7 @@ let threaded_ghost (upleftx, uplefty, taille_case, case_pac, case_fantome, l, h,
     check_loose ();
     if !win then
       begin
+
         clear_graph ();
         moveto 500 500;
         set_text_size 20;
@@ -252,12 +379,13 @@ let threaded_ghost (upleftx, uplefty, taille_case, case_pac, case_fantome, l, h,
   done;  
 ;;
 
+
 let game upleftx uplefty taille_case l h = 
   let r = Random.self_init () in
   case_fantome := l-1 ;
   let lab =  generate_lab_rec l h  in
   let pos = gen_pos upleftx uplefty taille_case l h in
-  let _ = Thread.create threaded_ghost (upleftx, uplefty, taille_case, case_pacman, case_fantome, l, h, lab, pos) in
+  let _ = Thread.create threaded_ghost (upleftx, uplefty, taille_case, case_pacman, case_fantome, l, h, lab, pos,lab) in
   clear_graph ();
   trace_lab upleftx uplefty  taille_case l h (lab);
   (*center pos;*)
@@ -285,7 +413,7 @@ let game upleftx uplefty taille_case l h =
 ;;
 
 let () = 
-  game 100 625 40 29 15;
+  game 100 625 40 10 10 ;
 ;;
 
 ignore  @@ Graphics.read_key();;
