@@ -211,7 +211,7 @@ let movefantome case_pac case_fantome l h =
 si la case n'existe pas exemple on demande la voisine gauche quand on ets au 
 bord du plateau on retourne la case courante  
  les cases sont rendu dans l'ordre gauche , haut , droit , bas *)
-let case_voisines i l h = Printf.printf " <case voisines> appélé pour %d\n " i;
+let case_voisines i l h = (*Printf.printf " <case voisines> appélé pour %d\n " i;*)
                           if i < l && i > 0 && i <(l-1) then [|i-1;i;i+1;i+l|] 
                           else if i < l && i > 0 && i = (l-1) then [|i-1;i;i;i+l|]  
                           else if i mod l = 0 && (i/l) = 0 then [|i;i;i+1;i+l|] 
